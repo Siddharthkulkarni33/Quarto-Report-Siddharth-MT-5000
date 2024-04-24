@@ -1,0 +1,330 @@
+---
+title: "Mathematics score trends and analysis"
+author: "Siddharth K"
+date: "2024-04-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library("ggplot2")
+library(zoo)
+library(maps)
+library(dplyr)
+library(scales)
+library(sf)
+library(spData)
+library(rnaturalearth)
+
+
+data1 <- read.csv("C:/Users/Dell/Downloads/unicef_indicator_1.csv")
+data2 <- read.csv("C:/Users/Dell/Downloads/unicef_indicator_2.csv")
+data3 <- read.csv("C:/Users/Dell/Downloads/unicef_metadata.csv")
+
+
+
+#category analysis of sex variable 
+table(data1$sex)
+
+  
+
+# Specify columns to replace NA values with 0
+replace_columns <- c("observation_status", "observation_confidentaility", "time_period_activity_related_to_when_the_data_are_collected")
+
+# Replace NA values with 0 in specified columns
+data1[replace_columns] <- na.fill(data1[replace_columns], fill = 0)
+
+
+
+
+
+# Merge datasets based on common key (country )
+combined_data <- inner_join (data1, data3, by = c("country"))
+
+#combined_data$unique_key <- paste(combined_data$country, combined_data$year, sep = "_")
+
+
+
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r echo=FALSE}
+
+
+
+```
+
+The report shows different trends of proportion of students at the end of primary achieving at least a minimum proficiency level in mathematics The story is supported with different data visualizations.
+
+### Introduction
+
+The report is derived using UNICEF data, mainly having 2 Data sets as **UNICEF_Indicator_1.CSV** and **UNICEF_METADATA.CSV**. They are named as **data1** and **data3** respectively. This nomenclature will be used in further report. Data1 is having 14 variables and data3 is having 11 variables.
+
+### Datasets Mapping
+
+Data1 and Data3 are joined using common variable: country to form a third data set named as **combined_data**. This combined_data data set is used for all data visualization and analysis.
+
+### Data Exploration
+
+Data1 and Data3 are further explored to understand the nature of data along with datatypes of the variables.
+
+```{r = The following shows the summary of the variables which includes count of line items for each variable, mean and median and their datatypes.}
+summary(data1)
+summary(data3)
+```
+
+### Data Visualization and Analysis
+
+This report tries to find relation between obs_value and other important variables such as GDP of country, Total population, Sex, Military expenditure,etc
+
+**1) Top 5 Countries having least obs_value for Proportion of students achieving minimum proficiency level in mathematics**
+
+```{r echo = FALSE  }
+
+fig.cap ="Bar chart of top 5 countries having least  obs_value % for Proportion of students at the end of primary achieving at least a minimum proficiency level in mathematics"
+
+bottom_countries <- combined_data %>%
+  group_by(country) %>%
+  summarize(mean_obs_value = mean(obs_value)) %>%
+  arrange(mean_obs_value) %>%  # Arrange data in ascending order of mean obs_value
+  head(5)  # Select top 5 countries (i.e., bottom 5 in terms of mean obs_value)
+
+
+### Plot bar chart for bottom 5 countries 
+bar_chart <- ggplot(data = bottom_countries, aes(x = country, y = mean_obs_value)) +
+  geom_bar(stat = "identity", fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Print the bar chart
+print(bar_chart)
+
+```
+
+Above bar graph shows that Congo have highest obs_value of 6% as compared to chad which is 2%. This clearly indicates that the proportion of students having proficiency in mathematics is lowest in country Chad. Thus, careful analysis can be done to figure out the root cause of this issue. Perhaps, these 5 countries should be given special attention in order to increase their obs_value percentages.
+
+**2) Top 4 Countries having least avg obs_value between the years 2000 and 2020**
+
+```{r echo= FALSE}
+selected_countries <- c("Chad", "Congo", "Ivory Coast", "Niger")
+combined_data_filtered <- combined_data %>%
+  filter(country %in% selected_countries, year >= 2000 & year <= 2020)
+
+
+# Time Series Chart for obs_value for top 4 countries having least obs_value between the years 2000 - 2020
+line_chart <- ggplot(data = combined_data_filtered, aes(x = year, y = obs_value, color = country)) +
+  geom_line() +
+  labs(title = "",
+       x = "Year",
+       y = "Observed Value",
+       color = "Country") +
+  theme_minimal()
+
+# Print the line chart
+print(line_chart)
+
+```
+
+Above Time series shows trend of obs_value over the span of 20 years ranging from 2000 to 2020. Chad and Ivory Coast had obs_value ranging between 2 - 1 and 3-2 respectively. Niger had an uneven obs_value distribution where it fluctuated between 1 and 8 on alternate years. On the other hand, Congo maintained obs_value of 6% - 8% over the mentioned years. Thus, countries like Chad and Ivory Coast had least proportion of students achieving minimum proficiency level in mathematics.
+
+**3) Distribution of GDP per Capita**
+
+```{r echo=FALSE}
+combined_data_filtered <- combined_data[!is.na(combined_data$GDP.per.capita..constant.2015.US..), ]
+
+# Create a histogram of GDP per capita
+histogram_gdp <- ggplot(data = combined_data_filtered, aes(x = GDP.per.capita..constant.2015.US..)) +
+  geom_histogram(binwidth = 1000, fill = "skyblue", color = "black") +
+  labs(title = "",
+       x = "GDP per Capita (Constant 2015 USD)",
+       y = "Frequency") +
+  theme_minimal()
+
+# Print the histogram
+print(histogram_gdp)
+
+```
+
+Above Histogram shows the distribution of GDP per capita across the countries in the dataset. This histogram help identify patterns such as most countries fall within a certain range of GDP per capita below 30000 USD. There are some exception of countries where the GDP is touching 120000 USD. Highest frequency of countries is 2000 having GDP around 5000 USD. Thus, countries with higher GDP are having higher proportion of students achieving minimum proficiency level in mathematics.
+
+**4) Relationship between GDP per Capita and Observed Value**
+
+```{r echo=FALSE}
+
+combined_data_filtered <- combined_data[!is.na(combined_data$GDP.per.capita..constant.2015.US..) & 
+                                          !is.na(combined_data$obs_value), ]
+
+
+
+
+combined_data_filtered <- combined_data[!is.na(combined_data$GDP.per.capita..constant.2015.US..) & 
+                                          !is.na(combined_data$obs_value), ]
+
+# Sample a subset of the data points
+set.seed(123)  # For reproducibility
+sampled_data <- combined_data_filtered[sample(nrow(combined_data_filtered), 1000), ]  # Adjust the number of points as needed
+
+# Create a scatter plot of GDP per capita vs. obs_value with sampled data
+scatterplot_gdp_obs <- ggplot(data = sampled_data, aes(x = GDP.per.capita..constant.2015.US.., y = obs_value)) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(title = "Relationship between GDP per Capita and Observed Value",
+       x = "(USD)",
+       y = "Observed Value") +
+  theme_minimal()
+
+# Print the scatter plot
+print(scatterplot_gdp_obs)
+
+
+
+```
+
+Above scattered plot shows distribution of GDP per capita ( USD) over obs_value. The red line represents the fitted linear regression line, indicating the overall trend or relationship between GDP per capita and the observed value. Whereas the blue dots represent distribution of countries across different GDP per capita and observed value combinations. Thus it can be observed that Majority of countries whose GDP fall in the range of 25000 - 50000 USD are having obs_value above 50 percent. This means countries having GDP above this mark have greater proportion of students achieving minimum marks in mathematics. Thus, GDP per capita has a direct relation with indicator's obs_value.Greater the GDP greater the proportion of students achieving minimum proficiency in mathematics.
+
+**5) Inflation Rate vs. Observed Values**
+
+```{r echo=FALSE}
+
+combined_data_filtered <- combined_data[!is.na(combined_data$Inflation..consumer.prices..annual...) & 
+                                          !is.na(combined_data$obs_value), ]
+
+# Sample a subset of the data points
+set.seed(123)  # For reproducibility
+sampled_data <- combined_data_filtered[sample(nrow(combined_data_filtered), 100), ]  # Adjust the number of points as needed
+
+# Create a smoothed line chart with simplified parameters
+smoothed_line_chart <- ggplot(data = sampled_data, aes(x = year)) +
+  geom_smooth(aes(y = Inflation..consumer.prices..annual...), method = "lm", se = FALSE, color = "red") +
+  geom_point(aes(y = obs_value), color = "blue", size = 2) +
+  labs(title = "",
+       x = "Year",
+       y = "Value") +
+  theme_minimal()
+
+# Print the simplified smoothed line chart
+print(smoothed_line_chart)
+
+
+
+
+
+filtered_data <- combined_data[!is.na(combined_data$obs_value) & !is.na(combined_data$Population..total), ]
+
+```
+
+Above line chart shows inflation rate against observed values.The red line represents a smoothed trend line fitted using linear regression for the "Inflation" variable over the years.The blue points represent the observed values plotted against the year. Thus, this chart helps to visualize the trends over time for both the inflation rate and the observed values, allowing for the examination of potential correlations or patterns between these variables
+
+**6) Relationship between obs_value and country population**
+
+```{r echo=FALSE}
+
+filtered_data <- combined_data[!is.na(combined_data$obs_value) & !is.na(combined_data$Population..total), ]
+
+# Filter the data to include only countries with population between 0 and 500,000,000
+filtered_data <- filtered_data[filtered_data$Population..total >= 0 & filtered_data$Population..total <= 500000000, ]
+
+# Randomly sample 100 countries for plotting
+sampled_data <- filtered_data %>%
+  sample_n(100)
+
+# Plot a scatter plot of observed value vs. population for the sampled data
+scatter_plot <- ggplot(data = sampled_data, aes(x = Population..total, y = obs_value)) +
+  geom_point(color = "blue", alpha = 0.7) +
+  labs(title = "",
+       x = "Population",
+       y = "Observed Value") +
+  theme_minimal() +
+  scale_x_continuous(labels = comma_format())  # Format x-axis labels without scientific notation
+
+# Print the scatter plot
+print(scatter_plot)
+
+
+
+
+
+```
+
+Above scatter plots shows the distribution of obs_value over country population. It is observed that obs_value lies in the range of 0 - 30 percent where the population of country is 0 - 50 Million. It is also observed new countries that have population in the range 200 million to 250 million have lower obs_value of approximately 20 percent. Thus it shows that total population contributes to the amount of students students achieving minimum proficiency level in mathematics.
+
+**7) Observation Value by Country**
+
+```{r echo=FALSE}
+
+# Load world map data
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+
+
+# Merge observation and population data
+merged_data <- merge(world, combined_data, by.x = "name", by.y = "country", all.x = TRUE)
+#merged_data <- merge(merged_data, pop_data, by.x = "name", by.y = "country", all.x = TRUE)
+
+
+# Plot the map
+ggplot() +
+  geom_sf(data = merged_data, aes(fill = obs_value), color = "black") +
+  scale_fill_viridis_c(name = "Observation Value") +
+  theme_minimal() +
+  labs(title = "") +
+  theme(legend.position = "bottom")
+
+```
+
+Above world map shows average obs_value by country. It is observed that Russia is having highest obs_value ranging above 80 percent whereas Africa continent has lowest obs_value below 25 percent. Thus, necessary steps need to taken to increase the proportion of students achieving minimum score in mathematics for countries especially in African continent.
+
+**8) Trend of avg obs_value by country over its Total Military Expenditure**
+
+```{r echo=FALSE}
+
+
+
+filtered_data <- combined_data[complete.cases(combined_data[, c("country", "obs_value")]), ]
+
+# Calculate the average observed value for each country
+avg_obs_value <- aggregate(obs_value ~ country, data = filtered_data, FUN = mean)
+
+# Sort the data by average observed value in descending order
+avg_obs_value <- avg_obs_value[order(-avg_obs_value$obs_value), ]
+
+# Calculate the total military expenditure for each country
+total_military_expenditure <- aggregate(Military.expenditure....of.GDP. ~ country, data = filtered_data, FUN = sum)
+
+# Merge military expenditure and average observed value data
+merged_data <- merge(total_military_expenditure, avg_obs_value, by = "country")
+
+# Create the bar chart
+bar_chart <- ggplot(data = merged_data, aes(x = reorder(country, Military.expenditure....of.GDP.), y = Military.expenditure....of.GDP.)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "",
+       x = "Country",
+       y = "Total Military Expenditure") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Add the line for average observed value
+bar_chart <- bar_chart +
+  geom_line(data = merged_data, aes(x = reorder(country, Military.expenditure....of.GDP.), y = obs_value, group = 1), color = "red")
+
+# Print the bar chart with line
+print(bar_chart)
+
+
+```
+
+Above bar graph shows the trend of country's avg obs_value over its military expenditure. The bars represent the total military expenditure for respective country. The red line represents the avg obs_value percent by country. Countries having higher military expenditure can be considered developed countries, thus contributing to higher obs_value percent. Whereas countries having lower military expenditure are observed having lower obs_value.
+
+```{r echo = FALSE}
+
+
+```
+
+
+### Conclusion 
+
+These data visualizations reveal insightful patterns in the data. Choropleth maps showcase regional disparities in observed values and GDP, highlighting areas of concern. Time series charts illustrate trends over time, offering insights into the evolving nature of observed values and economic indicators. Scatter plots and bar charts provide a nuanced understanding of the relationship between variables, such as GDP and observed values, allowing for targeted analysis.
+Overall, the visualizations helps stakeholders to identify key areas for intervention thus, facilitating informed decision-making processes.
+
+
+ 
